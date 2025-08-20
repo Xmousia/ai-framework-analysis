@@ -1,1220 +1,1261 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import os
+import re
 from datetime import datetime
-import textwrap
 
 # Import custom modules
-from framework_data import METAPHOR_FRAMEWORK_PROMPT, METAPHOR_ANALYSIS_SCHEMA, FRAMEWORK_EXAMPLES
-from display_utils import display_metaphor_results, create_markdown_report
-from analysis_runner import run_ai_analysis
-
-# Configure page
-st.set_page_config(
-    page_title="AI Framework Analysis Tool v2",
-    page_icon="🔬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+from framework_data import (
+    FRAMEWORK_EXAMPLES,
+    METAPHOR_EXAMPLE_TEXT,
+    FRAMING_EXAMPLE_TEXT,
+    RHETORICAL_EXAMPLE_TEXT
+)
+from display_utils import (
+    display_metaphor_results, 
+    display_framing_results,
+    display_rhetorical_results,
+    create_markdown_report
 )
 
-# Custom CSS
+# =============================================================================
+# PAGE SETUP
+# =============================================================================
+
+st.set_page_config(
+    page_title="AI Framework Analysis Tool",
+    page_icon="🔬",
+    layout="wide"
+)
+
+# Complete CSS with workshop styles
 st.markdown("""
 <style>
-.main-header {
+.big-header {
     font-size: 2.5rem;
     font-weight: bold;
     color: #1f77b4;
     text-align: center;
     margin-bottom: 2rem;
 }
-.step-header {
-    font-size: 1.5rem;
+.step-box {
+    background: #f0f2f6;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border-left: 5px solid #1f77b4;
+    margin: 1rem 0;
+}
+.completed-step {
+    background: #d4edda;
+    border-left: 5px solid #28a745;
+}
+.current-step {
+    background: #fff3cd;
+    border-left: 5px solid #ffc107;
+}
+.workshop-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 15px;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.workshop-title {
+    font-size: 2.5rem;
     font-weight: bold;
-    color: #2e7d32;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
 }
-.info-box {
-    background-color: rgba(227, 242, 253, 0.1);
-    border: 1px solid rgba(25, 118, 210, 0.3);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    border-left: 4px solid #1976d2;
-    margin: 1rem 0;
-    color: inherit;
+.workshop-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    font-style: italic;
 }
-.success-box {
-    background-color: rgba(232, 245, 232, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.3);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    border-left: 4px solid #4caf50;
+.objective-box {
+    background: #f8f9fa;
+    border-left: 5px solid #28a745;
+    padding: 1.5rem;
     margin: 1rem 0;
-    color: inherit;
+    border-radius: 8px;
 }
-.warning-box {
-    background-color: rgba(255, 243, 224, 0.1);
-    border: 1px solid rgba(245, 124, 0, 0.3);
+.methodology-box {
+    background: #e8f4fd;
+    border: 2px solid #1f77b4;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 10px;
+}
+.insight-box {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 10px;
+}
+.pipeline-step {
+    background: #f0f2f6;
     padding: 1rem;
-    border-radius: 0.5rem;
-    border-left: 4px solid #f57c00;
-    margin: 1rem 0;
-    color: inherit;
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    border-left: 4px solid #6c757d;
+}
+.under-hood-section {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin: 1.5rem 0;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-def init_session_state():
-    """Initialize all session state variables"""
+# =============================================================================
+# SESSION STATE INITIALIZATION
+# =============================================================================
+
+def init_simple_state():
+    """Initialize simple session state"""
     defaults = {
+        'step': 1,
+        'api_key': '',
         'api_configured': False,
+        'selected_framework': None,
         'framework_prompt': '',
-        'analysis_schema': None,
-        'model_configured': False,
+        'framework_schema': None,
         'text_to_analyze': '',
         'analysis_results': None,
-        'analysis_history': [],
-        'reflection_text': '',
-        'current_step': 1,
         'model_name': 'gemini-2.5-flash',
-        'generation_config': {
-            'temperature': 0.8,
-            'top_p': 0.8,
-            'top_k': 10,
-            'max_output_tokens': 8192
-        }
+        'show_workshop_page': False
     }
     
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-def display_progress():
-    """Display progress indicator"""
+# =============================================================================
+# WORKSHOP PAGE FUNCTIONS
+# =============================================================================
+
+def show_workshop_page():
+    """Enhanced workshop page that properly integrates with the actual pedagogical framework"""
+    
+    # Workshop Header - Updated to match actual workshop
+    st.markdown("""
+    <div class="workshop-header">
+        <div class="workshop-title">🔬 Prompt-as-Instrument Workshop</div>
+        <div class="workshop-subtitle">Using LLMs to Perform Theory-Driven Readings of Human Texts</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Introduction with proper context
+    st.markdown("## 🎓 Digital Scholarship Extension")
+    
+    st.markdown("""
+    This tool serves as the **digital scholarship extension** for the Prompt-as-Instrument Workshop. 
+    While the main workshop has students manually work through framework selection, prompt writing, and 
+    iterative testing, this tool provides a **technological scaffold** for exploring these concepts.
+    
+    **Workshop Context:** Students approach AI literacy as an interpretive practice, treating LLMs as both 
+    *instrument* (enacting their method) and *object* (producing outputs for critique).
+    """)
+    
+    # The 8-Step Workshop Process
+    st.markdown('<div class="methodology-box">', unsafe_allow_html=True)
+    st.markdown("## 📚 **The 8-Step Workshop Process**")
+    st.markdown("*This tool supports Steps 5-8 and serves as the optional Step 9 extension*")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Steps 1-4: Foundation Building**
+        1. 📖 **Pick Your Text** *(Research as Inquiry)*
+        2. 🔍 **Pick Your Lens** *(Strategic Exploration)*
+        3. 📝 **Summarize Framework** *(Scholarship as Conversation)*
+        4. 🎯 **Plan Your Analysis (Blueprint)** *(Information Creation)*
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Steps 5-8: Implementation & Critique** *(Tool-Supported)*
+        5. ✍️ **Write Your Prompt** *(Authority as Constructed)*
+        6. 🔄 **Test and Revise** *(Information Creation)*
+        7. 📋 **Annotate the Output** *(Authority as Constructed)*
+        8. 💭 **Write Your Reflection** *(Information Has Value)*
+        """)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Tool as Digital Scholarship Extension
+    st.markdown('<div class="insight-box">', unsafe_allow_html=True)
+    st.markdown("### 💡 **This Tool as Step 9: Digital Scholarship Extension**")
+    st.markdown("""
+    **Instead of manually testing prompts**, this tool demonstrates how theoretical frameworks can become 
+    **computationally actionable** while maintaining scholarly rigor. Students can:
+    
+    - **See expert-level framework implementations** (Steps 3-4: Summary & Blueprint)
+    - **Experience prompt-as-instrument design** (Step 5: Professional prompt architecture)
+    - **Practice critical evaluation** (Steps 7-8: Annotating and reflecting on AI outputs)
+    - **Build reusable scholarly tools** (Step 9: Packaging frameworks for others)
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # ACRL Framework Integration
+    st.markdown("## 🏛️ **ACRL Information Literacy Framework Connections**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **🔍 Research as Inquiry**  
+        *Framework selection and refinement*
+        
+        **📊 Information Creation as a Process**  
+        *Iterative prompt development and testing*
+        
+        **👑 Authority Is Constructed and Contextual**  
+        *How frameworks confer interpretive authority*
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🔍 Searching as Strategic Exploration**  
+        *Locating and synthesizing scholarly frameworks*
+        
+        **💬 Scholarship as Conversation**  
+        *Operationalizing scholarly concepts computationally*
+        
+        **💎 Information Has Value**  
+        *Ethical use of AI and proper citation practices*
+        """)
+    
+    # LLM as Instrument & Object
+    st.markdown("## 🔬 **LLM as Both Instrument & Object**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        ### **🛠️ LLM as Instrument**
+        *The AI enacts your theoretical method*
+        
+        - Applies framework consistently
+        - Processes large texts systematically  
+        - Generates structured outputs
+        - Enables scalable analysis
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### **🔍 LLM as Object** 
+        *The AI's output becomes data for critique*
+        
+        - Where does it succeed/fail?
+        - What does it miss or overemphasize?
+        - How do its biases shape interpretation?
+        - What are the framework's limitations?
+        """)
+    
+    # Assessment Integration
+    st.markdown('<div class="objective-box">', unsafe_allow_html=True)
+    st.markdown("## 🎯 **Assessment Rubric Elements**")
+    st.markdown("""
+    **This tool helps students demonstrate:**
+    
+    - **Framework Clarity & Accuracy:** See expert implementations
+    - **Blueprint Specificity:** Experience well-structured prompts  
+    - **Iteration Rationale:** Understand prompt refinement process
+    - **Analytical Annotations:** Practice critical evaluation of AI outputs
+    - **Synthesis & Reflection:** Connect theory, tool, and critique
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Getting Started - Updated for workshop context
+    st.markdown("## 🎯 **Ready to Explore?**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📚 Start Analysis Tool", use_container_width=True, type="primary"):
+            st.session_state.show_workshop_page = False
+            st.session_state.step = 1
+            st.rerun()
+    
+    with col2:
+        if st.button("🔍 Explore Frameworks", use_container_width=True):
+            st.session_state.show_workshop_page = False
+            st.session_state.step = 2
+            st.rerun()
+    
+    with col3:
+        # Workshop resource package
+        workshop_resources = create_workshop_resource_package()
+        st.download_button(
+            label="📦 Download Full Workshop Guide",
+            data=workshop_resources,
+            file_name="prompt_as_instrument_workshop_complete.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
+    
+    # Footer with pedagogical context
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #6c757d; margin-top: 2rem;">
+        <em>This digital scholarship extension bridges traditional humanities pedagogy with computational methods, 
+        demonstrating how theoretical frameworks can become actionable tools while maintaining critical rigor.</em>
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_workshop_resource_package():
+    """Create enhanced workshop resources that integrate with the actual pedagogy"""
+    
+    resources = f"""# Prompt-as-Instrument Workshop: Complete Guide
+## Using LLMs to Perform Theory-Driven Readings of Human Texts
+
+### Abstract
+This activity approaches AI literacy as an interpretive practice that can also inform tool-use skills. Students select a theoretical lens for reading human texts, translate that lens into a carefully structured prompt, and iteratively test the prompt with a large language model.
+
+The model functions both as:
+* **Instrument** — enacting the student's method on a target text  
+* **Object** — producing outputs that can themselves be annotated and critiqued
+
+### Learning Outcomes (ACRL Framework)
+* **Research as Inquiry** — Formulate and refine research questions; select appropriate theoretical lenses
+* **Information Creation as a Process** — Translate theory into a procedural prompt; iterate with documented versions  
+* **Authority Is Constructed and Contextual** — Evaluate how interpretive frames confer or withhold authority
+* **Searching as Strategic Exploration** — Locate, compare, and synthesize scholarly sources to build actionable frameworks
+* **Scholarship as Conversation** — Cite, operationalize, and critique scholarly concepts in applied settings
+* **Information Has Value** — Address citation ethics and reflect on responsible use of generative systems
+
+## The 8-Step Workshop Process
+
+### Steps 1-4: Foundation Building
+1. **Pick Your Text** *(Research as Inquiry)*
+   - Choose a human-authored text to analyze (news article, speech, press release, etc.)
+   
+2. **Pick Your Lens** *(Searching as Strategic Exploration)*  
+   - Select a theoretical framework from class readings or your own research
+   
+3. **Summarize Your Framework** *(Scholarship as Conversation)*
+   - Explain the framework's key terms and how it works
+   - Cite at least two scholarly sources
+   
+4. **Plan Your Analysis (Blueprint)** *(Information Creation as a Process)*
+   - Describe what a good application of your framework would look like
+   - Be concrete and specific about expected outcomes
+
+### Steps 5-8: Implementation & Critique  
+5. **Write Your Prompt** *(Authority Is Constructed and Contextual)*
+   - Turn your blueprint into clear instructions for the LLM
+   - Include definitions, examples, and desired formatting
+   
+6. **Test and Revise** *(Information Creation as a Process)*
+   - Run your prompt and record outputs
+   - Create at least two versions with documented rationale for changes
+   
+7. **Annotate the Output** *(Authority Is Constructed and Contextual)*  
+   - Mark up one final output highlighting where the model succeeds/fails
+   - Identify framework insights and AI limitations
+   
+8. **Write Your Reflection** *(Information Has Value)*
+   - 2-3 paragraphs analyzing the model's performance as both instrument and object
+   - Address ethical considerations and framework effectiveness
+
+### Step 9: Digital Scholarship Extension (Optional)
+Use the AI Framework Analysis Tool or build your own simple implementation:
+* Google Colab notebook for uploaded texts
+* Streamlit app with web interface  
+* Lightweight deployment for sharing
+* Batch processing for multiple texts
+
+## This Tool as Digital Scholarship Extension
+
+### How It Supports Workshop Goals:
+- **Expert Framework Implementations** (Steps 3-4: See professional framework summaries and blueprints)
+- **Prompt Architecture Examples** (Step 5: Experience well-structured prompts)  
+- **Parameter Exploration** (Step 6: Understand iteration and refinement)
+- **Structured Outputs for Analysis** (Step 7: Download results for annotation)
+- **Critical Evaluation Practice** (Step 8: Reflect on AI as instrument vs object)
+
+### LLM as Instrument & Object
+**Instrument:** The AI applies theoretical frameworks systematically and consistently
+**Object:** The AI's outputs reveal both framework insights and AI limitations, becoming data for critical analysis
+
+## Sample Frameworks Available:
+1. **Metaphor & Anthropomorphism Analysis** — AI discourse analysis using cognitive linguistics
+2. **Political Framing Analysis** — Discourse analysis using Entman's framing functions  
+3. **Aristotelian Rhetorical Analysis** — Comprehensive ethos, pathos, logos analysis
+
+## Assessment Elements This Tool Supports:
+* **Framework Clarity & Accuracy** — See expert implementations
+* **Blueprint Specificity** — Experience well-structured analysis plans  
+* **Iteration Rationale** — Understand prompt refinement process
+* **Analytical Annotations** — Practice critical evaluation of AI outputs
+* **Synthesis & Reflection** — Connect theory, tool use, and critique
+
+---
+*This workshop bridges traditional humanities pedagogy with digital methods, preparing students for scholarly work in an AI-integrated academic landscape.*
+
+Generated by AI Framework Analysis Tool - Workshop Edition
+"""
+    
+    return resources
+
+# =============================================================================
+# MAIN APP LOGIC
+# =============================================================================
+
+def main():
+    """Main application with workshop page integration"""
+    init_simple_state()
+    
+    # Check if workshop page should be shown
+    if st.session_state.get('show_workshop_page', False):
+        show_workshop_page()
+        
+        # Add back button
+        st.markdown("---")
+        if st.button("← Back to Analysis Tool", type="secondary"):
+            st.session_state.show_workshop_page = False
+            st.rerun()
+        return
+    
+    # Header with workshop info
+    st.markdown('<div class="big-header">🔬 AI Framework Analysis Tool</div>', unsafe_allow_html=True)
+    
+    # Workshop info banner
+    st.info("🎓 **Workshop Tool:** This demonstrates the Framework-to-Prompt-to-Analysis pipeline for digital scholarship. Click 'About Workshop' below to learn more!")
+    
+    # Clear step indicator
+    show_step_progress()
+    
+    # Main content based on current step
+    if st.session_state.step == 1:
+        step_1_api_setup()
+    elif st.session_state.step == 2:
+        step_2_choose_framework()
+    elif st.session_state.step == 3:
+        step_3_add_text()
+    elif st.session_state.step == 4:
+        step_4_run_analysis()
+    elif st.session_state.step == 5:
+        step_5_view_results()
+    
+    # Navigation buttons at bottom
+    show_navigation_buttons()
+    
+    # Enhanced sidebar with workshop info
+    with st.sidebar:
+        st.markdown("### 🎓 Workshop Navigation")
+        if st.button("📚 About This Workshop", use_container_width=True, type="primary"):
+            st.session_state.show_workshop_page = True
+            st.rerun()
+        
+        # Download workshop resources
+        workshop_resources = create_workshop_resource_package()
+        st.download_button(
+            label="📦 Download Workshop Resources",
+            data=workshop_resources,
+            file_name="prompt_as_instrument_workshop_complete.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
+        
+        st.markdown("### 🔄 Reset")
+        if st.button("Start Over", type="secondary", use_container_width=True):
+            # Clear everything except workshop page preference
+            keys_to_keep = ['show_workshop_page']
+            for key in list(st.session_state.keys()):
+                if key not in keys_to_keep:
+                    del st.session_state[key]
+            st.rerun()
+
+def show_step_progress():
+    """Show clear step progress"""
     steps = [
-        "🔑 Setup", 
-        "📚 Framework", 
-        "🏗️ Schema", 
-        "📖 Text Input", 
-        "🎯 Analysis", 
-        "🤔 Reflection"
+        "🔑 API Setup",
+        "📚 Choose Framework", 
+        "📖 Add Text",
+        "🎯 Run Analysis",
+        "📊 View Results"
     ]
     
-    cols = st.columns(len(steps))
-    for i, (col, step) in enumerate(zip(cols, steps)):
+    st.markdown("### Progress:")
+    
+    cols = st.columns(5)
+    for i, (col, step_name) in enumerate(zip(cols, steps), 1):
         with col:
-            if i + 1 < st.session_state.current_step:
-                st.success(f"✅ {step}")
-            elif i + 1 == st.session_state.current_step:
-                st.info(f"🔄 {step}")
+            if i < st.session_state.step:
+                st.markdown(f"✅ **{step_name}**")
+            elif i == st.session_state.step:
+                st.markdown(f"🔄 **{step_name}**")
             else:
-                st.write(f"⏳ {step}")
+                st.markdown(f"⏳ {step_name}")
+    
+    st.markdown("---")
 
-def setup_api():
-    """Step 1: API Configuration"""
-    st.markdown('<div class="step-header">🔑 Step 1: API Configuration</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="info-box">
-    <b>Steps to get a free Gemini API key:</b><br>
-    1. <b>Go to Google AI Studio:</b> Log in using a Google account<br>
-    2. <b>Accept Terms & Conditions:</b> If it's the first visit, agree to the terms<br>
-    3. <b>Click "Get API Key":</b> Usually found in the top-left or prominent location<br>
-    4. <b>Create API Key:</b> Click "Create API Key" and select an existing Google Cloud Project, or create a new one<br>
-    5. <b>Copy the API Key:</b> Once generated, copy and securely store the key<br><br>
-    🔗 <a href="https://makersuite.google.com/app/apikey" target="_blank">Get your API key here</a>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
+def show_navigation_buttons():
+    """Show navigation buttons"""
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
-        api_key = st.text_input(
-            "Google AI API Key",
-            type="password",
-            placeholder="Paste your API key here and press Enter...",
-            help="Get your free API key from Google AI Studio",
-            key="api_key_input"
-        )
-        
-        # Add a button as alternative to pressing Enter
-        if st.button("🔗 Connect to Google AI", disabled=not api_key, key="connect_api"):
-            st.session_state.api_key_submitted = True
+        if st.session_state.step > 1:
+            if st.button("⬅️ Back", use_container_width=True):
+                st.session_state.step -= 1
+                st.rerun()
     
     with col2:
-        st.markdown("**Model Configuration**")
-        
-        # Model selection
-        model_name = st.selectbox(
-            "Gemini Model",
-            [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-2.5-flash-lite",
-                "learnlm-2.0-flash-experimental"
-            ],
-            index=1,  # Default to gemini-2.5-flash
-            help="Choose the Gemini model for analysis"
-        )
-        
-        # Store model choice
-        st.session_state.model_name = model_name
+        st.markdown(f"**Step {st.session_state.step} of 5**")
     
-    # Advanced model configuration
-    with st.expander("🔧 Advanced Model Settings", expanded=False):
-        st.markdown("**Generation Parameters:**")
+    with col3:
+        # Next button conditions
+        can_proceed = False
+        if st.session_state.step == 1 and st.session_state.api_configured:
+            can_proceed = True
+        elif st.session_state.step == 2 and st.session_state.selected_framework:
+            can_proceed = True
+        elif st.session_state.step == 3 and st.session_state.text_to_analyze:
+            can_proceed = True
+        elif st.session_state.step == 4 and st.session_state.analysis_results:
+            can_proceed = True
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            temperature = st.slider(
-                "Temperature",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.8,
-                step=0.1,
-                help="Controls creativity (0.0 = deterministic, 1.0 = very creative)"
-            )
-            
-            top_p = st.slider(
-                "Top P",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.8,
-                step=0.1,
-                help="Controls diversity of word choices"
-            )
-        
-        with col2:
-            top_k = st.slider(
-                "Top K",
-                min_value=1,
-                max_value=40,
-                value=10,
-                step=1,
-                help="Limits vocabulary choices to top K words"
-            )
-            
-            max_tokens = st.slider(
-                "Max Output Tokens",
-                min_value=1000,
-                max_value=16000,
-                value=8192,
-                step=500,
-                help="Maximum length of AI response"
-            )
-        
-        # Store generation config
-        st.session_state.generation_config = {
-            "temperature": temperature,
-            "top_p": top_p,
-            "top_k": top_k,
-            "max_output_tokens": max_tokens
-        }
-        
-        # Show current config
-        st.json(st.session_state.generation_config)
-    
-    # Check if API key was entered (either by pressing Enter or clicking button)
-    if api_key and (st.session_state.get('api_key_submitted') or api_key != st.session_state.get('previous_api_key', '')):
-        st.session_state.previous_api_key = api_key
-        try:
-            genai.configure(api_key=api_key)
-            # Test the connection with selected model
-            test_model = genai.GenerativeModel(st.session_state.model_name)
-            st.session_state.api_configured = True
-            st.session_state.current_step = max(st.session_state.current_step, 2)
-            
-            st.markdown(f"""
-            <div class="success-box">
-            ✅ <b>API Key Configured Successfully!</b><br>
-            Using model: <code>{st.session_state.model_name}</code>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        except Exception as e:
-            st.error(f"❌ API Configuration Error: {str(e)}")
-    
-    return api_key
+        if can_proceed and st.session_state.step < 5:
+            if st.button("Next ➡️", use_container_width=True, type="primary"):
+                st.session_state.step += 1
+                st.rerun()
 
-def framework_input():
-    """Step 2: Theoretical Framework Input"""
-    if not st.session_state.api_configured:
-        st.warning("⚠️ Please configure your API key first")
-        return
+# =============================================================================
+# STEP 1: API SETUP
+# =============================================================================
+
+def step_1_api_setup():
+    """Step 1: Simple API setup"""
+    st.markdown('<div class="step-box current-step">', unsafe_allow_html=True)
+    st.markdown("## 🔑 Step 1: API Setup")
+    st.markdown("Get your free Google AI API key to power the analysis.")
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="step-header">📚 Step 2: Your Theoretical Framework</div>', unsafe_allow_html=True)
+    # Instructions
+    st.markdown("""
+    **Quick Setup:**
+    1. 🌐 Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+    2. 🔑 Sign in with Google account
+    3. 🎯 Click "Create API Key"
+    4. 📋 Copy the key and paste below, then press ENTER
+    """)
     
-    # Framework selection
-    framework_choice = st.radio(
-        "Choose your framework approach:",
-        [
-            "Browse Example Frameworks",
-            "Create Custom Framework"
-        ],
-        help="Start with examples to see sophisticated framework design",
-        key="framework_choice_radio"
+    # API key input
+    api_key = st.text_input(
+        "Paste your API key here:",
+        type="password",
+        value=st.session_state.api_key,
+        placeholder="AIzaSyC... (starts with AIzaSy)",
+        help="Your API key should start with 'AIzaSy' and be about 39 characters long"
     )
     
-    if framework_choice == "Browse Example Frameworks":
-        st.markdown("""
-        <div class="info-box">
-        <b>Example Frameworks:</b> These demonstrate how to operationalize complex theoretical approaches
-        and create sophisticated analysis tools.
-        </div>
-        """, unsafe_allow_html=True)
+    if api_key:
+        st.session_state.api_key = api_key.strip()  # Remove any whitespace
         
-        # Display available examples
-        example_choice = st.selectbox(
-            "Select an example framework:",
-            list(FRAMEWORK_EXAMPLES.keys()),
-            help="Each example shows prompt design and JSON schema creation"
-        )
-        
-        if example_choice:
-            example = FRAMEWORK_EXAMPLES[example_choice]
-            
-            # Show example details
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.markdown(f"**{example_choice}**")
-                st.write(f"📖 {example['description']}")
-                st.write(f"🎓 **Discipline:** {example['discipline']}")
-                
-                with st.expander("📋 View Complete Framework Prompt", expanded=False):
-                    st.text_area(
-                        "Framework Prompt", 
-                        value=example['prompt'], 
-                        height=400, 
-                        disabled=True,
-                        key=f"prompt_display_{example_choice}"
-                    )
-            
-            with col2:
-                st.markdown("**Framework Features:**")
-                
-                if example_choice == "Metaphor & Anthropomorphism Analysis":
-                    st.markdown("""
-                    • 3-part audit structure
-                    • Cognitive linguistics grounding
-                    • Brown's explanation typology
-                    • AI literacy focus
-                    • Structured JSON output
-                    """)
-                
-                elif example_choice == "Political Framing Analysis":
-                    st.markdown("""
-                    • Entman's framing functions
-                    • Lakoff's frame semantics
-                    • Agenda-setting analysis
-                    • Role assignment mapping
-                    • Counterframe detection
-                    """)
-                
-                with st.expander("🔍 View JSON Schema"):
-                    st.json(example['schema'])
-            
-            # Option to use this example
-            if st.button(f"✅ Use {example_choice}", key=f"use_example_{example_choice}"):
-                st.session_state.framework_prompt = example['prompt']
-                st.session_state.analysis_schema = example['schema']
-                st.session_state.current_step = max(st.session_state.current_step, 4)  # Skip schema builder
-                st.session_state.model_configured = True
-                st.success(f"✅ {example_choice} framework loaded and configured!")
-                st.rerun()
-        
-    else:  # Create Custom Framework
-        st.markdown("""
-        <div class="info-box">
-        <b>Custom Framework Guidelines:</b><br>
-        • Clear explanation of your theoretical framework<br>
-        • Specific instructions for applying it to texts<br>
-        • Examples of good analysis<br>
-        • Output format requirements<br><br>
-        💡 <b>Tip:</b> Study the example frameworks above to see sophisticated prompt design!
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Show examples for inspiration
-        with st.expander("💡 Need Inspiration? View Example Framework Structures"):
-            st.markdown("""
-            **Example Framework Patterns:**
-            
-            **📖 Literary Analysis Framework:**
-            ```
-            # Character Development Analysis
-            
-            **Theoretical Background:** 
-            Apply theories of character development (dynamic vs. static, round vs. flat)
-            
-            **Analysis Instructions:**
-            1. Identify main characters and categorize development type
-            2. Track character changes through specific scenes
-            3. Analyze techniques used to reveal character
-            4. Evaluate effectiveness of character arcs
-            
-            **Output Requirements:**
-            - Character profiles with evidence
-            - Development timeline
-            - Literary technique analysis
-            - Overall assessment
-            ```
-            
-            **🎭 Rhetorical Analysis Framework:**
-            ```
-            # Aristotelian Rhetorical Analysis
-            
-            **Theoretical Background:**
-            Apply Aristotle's rhetorical triangle (ethos, pathos, logos)
-            
-            **Analysis Instructions:**
-            1. Identify appeals to ethos (credibility/authority)
-            2. Locate pathos appeals (emotional engagement)  
-            3. Find logos elements (logical reasoning)
-            4. Assess effectiveness and interaction of appeals
-            
-            **Output Requirements:**
-            - Categorized examples with quotes
-            - Effectiveness ratings
-            - Audience analysis
-            - Strategic assessment
-            ```
-            """)
-        
-        framework_prompt = st.text_area(
-            "Your Custom Framework Prompt",
-            value=st.session_state.framework_prompt,
-            height=400,
-            placeholder="""Example structure:
-            
-# Your Framework Name
-
-**Theoretical Background:**
-[Explain your theoretical approach and key concepts]
-
-**Analysis Instructions:**
-[Step-by-step instructions for applying your framework]
-[What should the AI look for? How should it analyze?]
-
-**Output Requirements:**
-[How you want results organized and formatted]
-
-**Examples:**
-[Sample analysis to guide the AI's work]
-
-**Tone and Approach:**
-[Analytical stance, academic level, citation style]""",
-            help="This becomes the 'system instruction' that guides the AI's analysis",
-            key="custom_framework_textarea"
-        )
-        
-        if framework_prompt and len(framework_prompt) > 100:
-            st.session_state.framework_prompt = framework_prompt
-            
-            # Show framework stats
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Framework Length", f"{len(framework_prompt):,} chars")
-            with col2:
-                if len(framework_prompt) < 500:
-                    st.metric("Quality", "Too Short", delta="⚠️")
-                elif len(framework_prompt) > 15000:
-                    st.metric("Quality", "Very Long", delta="⚠️")
-                else:
-                    st.metric("Quality", "Good", delta="✅")
-            with col3:
-                word_count = len(framework_prompt.split())
-                st.metric("Word Count", f"{word_count:,}")
-            
-            # Framework analysis
-            if st.checkbox("📊 Analyze Framework Quality"):
-                st.markdown("**Framework Analysis:**")
-                
-                has_background = "background" in framework_prompt.lower() or "theory" in framework_prompt.lower()
-                has_instructions = "instruction" in framework_prompt.lower() or "analyze" in framework_prompt.lower()
-                has_examples = "example" in framework_prompt.lower() or "sample" in framework_prompt.lower()
-                has_output = "output" in framework_prompt.lower() or "format" in framework_prompt.lower()
-                
-                components = [
-                    ("Theoretical Background", has_background),
-                    ("Analysis Instructions", has_instructions), 
-                    ("Examples/Samples", has_examples),
-                    ("Output Format", has_output)
-                ]
-                
-                for component, present in components:
-                    status = "✅" if present else "⚠️"
-                    st.write(f"{status} {component}")
-                
-                completeness = sum(c[1] for c in components) / len(components)
-                if completeness >= 0.75:
-                    st.success("🎉 Well-structured framework!")
-                else:
-                    st.warning("💡 Consider adding missing components for better AI performance")
-            
-            # Only advance when user explicitly confirms
-            if st.button("✅ Continue with this Framework", key="confirm_custom_framework"):
-                st.session_state.current_step = max(st.session_state.current_step, 3)
-                st.rerun()
-
-def schema_builder():
-    """Step 3: Interactive JSON Schema Builder"""
-    if not st.session_state.framework_prompt:
-        st.warning("⚠️ Please complete your framework prompt first")
-        return
+        # Basic format check
+        if not api_key.startswith('AIzaSy'):
+            st.warning("⚠️ API key should start with 'AIzaSy'. Double-check your key.")
+        elif len(api_key) < 30:
+            st.warning("⚠️ API key seems too short. Make sure you copied the complete key.")
+        else:
+            # Test the API key
+            if st.button("🔗 Test Connection", type="primary"):
+                with st.spinner("Testing API key..."):
+                    try:
+                        genai.configure(api_key=api_key)
+                        test_model = genai.GenerativeModel("gemini-2.5-flash")
+                        
+                        # Try a simple test query
+                        test_response = test_model.generate_content("Say 'API test successful'")
+                        
+                        st.session_state.api_configured = True
+                        st.success("✅ API key works perfectly! Ready for next step.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ API key test failed: {str(e)}")
+                        st.session_state.api_configured = False
+                        
+                        # Help with common issues
+                        st.markdown("""
+                        **Common fixes:**
+                        - Make sure you copied the complete API key
+                        - Check that your Google Cloud project has AI services enabled
+                        - Try generating a new API key
+                        """)
     
-    st.markdown('<div class="step-header">🏗️ Step 3: Analysis Structure Designer</div>', unsafe_allow_html=True)
-    
-    # Educational framing
-    st.markdown("""
-    <div class="info-box">
-    <b>Understanding Prompt vs. Schema:</b><br>
-    🔧 <b>Your Prompt = Method</b> - The interpretive instrument (your theoretical lens)<br>
-    📦 <b>Schema = Container</b> - The shape of acceptable answers for reuse and comparison
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Check if we're using the metaphor framework
-    is_metaphor_framework = "Metaphor and Anthropomorphism" in st.session_state.framework_prompt
-    is_framing_framework = "Framing Analysis" in st.session_state.framework_prompt
-    
-    if is_metaphor_framework or is_framing_framework:
-        framework_type = "Metaphor Analysis" if is_metaphor_framework else "Framing Analysis"
-        st.markdown(f"""
-        <div class="success-box">
-        <b>{framework_type}:</b> Using the specialized schema designed for this framework.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        schema_to_use = METAPHOR_ANALYSIS_SCHEMA if is_metaphor_framework else FRAMEWORK_EXAMPLES["Political Framing Analysis"]["schema"]
-        st.session_state.analysis_schema = schema_to_use
-        st.session_state.model_configured = True
-        st.session_state.current_step = max(st.session_state.current_step, 4)
-        
-        with st.expander(f"🔍 View {framework_type} Schema", expanded=False):
-            st.json(schema_to_use)
-        
-        st.success(f"✅ {framework_type} schema configured automatically!")
-        
     else:
-        # Three-tiered approach
-        st.markdown("### Choose Your Analysis Structure")
-        
-        structure_choice = st.radio(
-            "Select the level of structure that fits your needs:",
+        st.info("👆 Paste your API key above to get started")
+    
+    # Model selection (only show if API is working)
+    if st.session_state.api_configured:
+        st.markdown("### 🤖 Choose Model")
+        model_choice = st.selectbox(
+            "Which model to use?",
             [
-                "1. 🆓 Freeform Text (Exploration & Quick Reads)",
-                "2. 📋 Light Structure (Assessment & Peer Review)", 
-                "3. 🔧 Strict Schema (Reuse & Tool Building)",
-                "4. 📄 Paste Existing Schema (I have one ready)"
-            ],
-            help="Each tier serves different pedagogical and research purposes",
-            key="structure_tier_choice"
+                "gemini-2.5-flash (Recommended - Fast & Smart)",
+                "gemini-2.5-pro (Slower but Most Capable)",
+                "gemini-2.5-flash-lite (Fastest)"
+            ]
         )
+        st.session_state.model_name = model_choice.split(" ")[0]
         
-        if "1. 🆓 Freeform" in structure_choice:
-            st.markdown("""
-            <div class="info-box">
-            <b>Freeform Text Analysis</b><br>
-            ✅ Best for: Early exploration, quick reads, creative interpretation<br>
-            ✅ Easiest for students<br>
-            ⚠️ Harder to compare across runs
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.session_state.analysis_schema = None
-            st.session_state.model_configured = True
-            st.session_state.current_step = max(st.session_state.current_step, 4)
-            
-            st.info("📝 The AI will provide structured paragraphs with clear headings.")
-            
-            if st.button("✅ Use Freeform Text", key="confirm_freeform"):
-                st.success("Ready for analysis! Your framework will generate readable text output.")
-                st.rerun()
-        
-        elif "2. 📋 Light Structure" in structure_choice:
-            st.markdown("""
-            <div class="info-box">
-            <b>Light Structure Analysis</b><br>
-            ✅ Best for: Classroom assessment, peer review, side-by-side comparison<br>
-            ✅ Human-first but aligned outputs<br>
-            ✅ Good balance of flexibility and consistency
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Simple structured format
-            st.subheader("🔍 Framework Deconstruction")
-            st.markdown("*Identify your main analysis categories:*")
-            
-            categories_input = st.text_area(
-                "If you were teaching someone your framework, what are the 3-5 main things they should look for?",
-                placeholder="Example for Literary Analysis:\n1. Character development patterns\n2. Symbolic language use\n3. Narrative structure choices\n4. Thematic connections",
-                height=150,
-                key="framework_categories"
-            )
-            
-            # Create simple structure
-            lightweight_schema = {
-                "type": "object",
-                "properties": {
-                    "analysis_overview": {"type": "string"},
-                    "main_findings": {
-                        "type": "array",
-                        "items": {
-                            "type": "object", 
-                            "properties": {
-                                "category": {"type": "string"},
-                                "evidence": {"type": "string"},
-                                "interpretation": {"type": "string"}
-                            },
-                            "required": ["category", "evidence", "interpretation"]
-                        }
-                    },
-                    "synthesis": {"type": "string"}
-                },
-                "required": ["analysis_overview", "main_findings", "synthesis"]
-            }
-            
-            st.session_state.analysis_schema = lightweight_schema
-            st.session_state.model_configured = True
-            st.session_state.current_step = max(st.session_state.current_step, 4)
-            
-            if st.button("✅ Use Light Structure", key="confirm_light"):
-                st.success("Ready for analysis! Your output will have consistent sections for easy comparison.")
-                st.rerun()
-        
-        elif "3. 🔧 Strict Schema" in structure_choice:
-            st.markdown("""
-            <div class="info-box">
-            <b>Strict Schema (JSON)</b><br>
-            ✅ Best for: Reuse, tool building, batch processing, rigorous comparison<br>
-            ✅ Enables rubric-aligned checks and data analysis<br>
-            ⚠️ Requires more upfront design work
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.subheader("🏗️ Custom Schema Builder")
-            
-            # Framework deconstruction worksheet
-            with st.expander("📋 Framework Deconstruction Worksheet", expanded=True):
-                st.markdown("**Step 1: Identify Your Analysis Categories**")
-                categories_text = st.text_area(
-                    "What are the 3-5 main things your framework looks for?",
-                    placeholder="List your main analytical categories...",
-                    height=100,
-                    key="schema_categories"
-                )
-                
-                st.markdown("**Step 2: Define Information Needed**")
-                details_text = st.text_area(
-                    "For each category, what specific information do you need?",
-                    placeholder="What questions does your framework ask? What would good evidence look like?",
-                    height=100,
-                    key="schema_details"
-                )
-            
-            # Interactive schema builder
-            if categories_text and details_text:
-                st.markdown("**Step 3: Build Your Schema**")
-                
-                # Parse categories
-                categories = [cat.strip() for cat in categories_text.split('\n') if cat.strip()]
-                
-                if len(categories) > 0:
-                    schema = {"type": "object", "properties": {}, "required": []}
-                    
-                    for i, category in enumerate(categories):
-                        st.markdown(f"**Category: {category}**")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            is_list = st.checkbox(
-                                f"Multiple items for '{category}'?",
-                                key=f"is_list_{i}",
-                                help="Check if this category will have multiple examples/items"
-                            )
-                        
-                        with col2:
-                            if is_list:
-                                fields_input = st.text_input(
-                                    "Fields for each item (comma-separated)",
-                                    placeholder="quote, analysis, significance",
-                                    key=f"fields_{i}"
-                                )
-                        
-                        # Build schema part
-                        clean_category = category.lower().replace(' ', '_').replace('-', '_')
-                        
-                        if is_list and fields_input:
-                            fields = [f.strip() for f in fields_input.split(',') if f.strip()]
-                            if fields:
-                                schema["properties"][clean_category] = {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {field: {"type": "string"} for field in fields},
-                                        "required": fields
-                                    }
-                                }
-                                schema["required"].append(clean_category)
-                        else:
-                            schema["properties"][clean_category] = {"type": "string"}
-                            schema["required"].append(clean_category)
-                    
-                    # Add conclusion
-                    schema["properties"]["conclusion"] = {"type": "string"}
-                    schema["required"].append("conclusion")
-                    
-                    st.session_state.analysis_schema = schema
-                    
-                    with st.expander("🔍 Generated Schema Preview"):
-                        st.json(schema)
-                    
-                    if st.button("✅ Use This Schema", key="confirm_custom_schema"):
-                        st.session_state.model_configured = True
-                        st.session_state.current_step = max(st.session_state.current_step, 4)
-                        st.success("Custom schema configured! Ready for structured analysis.")
-                        st.rerun()
-            
-            else:
-                st.info("💡 Complete the framework deconstruction above to build your schema.")
-        
-        else:  # Paste Existing Schema
-            st.markdown("""
-            <div class="info-box">
-            <b>Paste Existing Schema</b><br>
-            ✅ Perfect for: Students who built schemas offline or want to reuse previous work<br>
-            ✅ Supports any valid JSON Schema format<br>
-            💡 Tip: Make sure your schema uses lowercase types ("object", "array", "string")
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Schema input area
-            schema_text = st.text_area(
-                "Paste your JSON Schema here:",
-                height=300,
-                placeholder="""{
-  "type": "object",
-  "properties": {
-    "analysis_overview": {"type": "string"},
-    "main_findings": {
-      "type": "array", 
-      "items": {
-        "type": "object",
-        "properties": {
-          "category": {"type": "string"},
-          "evidence": {"type": "string"},
-          "analysis": {"type": "string"}
-        },
-        "required": ["category", "evidence", "analysis"]
-      }
-    },
-    "conclusion": {"type": "string"}
-  },
-  "required": ["analysis_overview", "main_findings", "conclusion"]
-}""",
-                help="Paste a valid JSON Schema that defines your analysis structure",
-                key="paste_schema_input"
-            )
-            
-            if schema_text:
-                try:
-                    # Validate JSON
-                    parsed_schema = json.loads(schema_text)
-                    
-                    # Basic validation
-                    if not isinstance(parsed_schema, dict):
-                        st.error("❌ Schema must be a JSON object")
-                    elif "type" not in parsed_schema:
-                        st.warning("⚠️ Schema should have a 'type' field")
-                    elif "properties" not in parsed_schema:
-                        st.warning("⚠️ Schema should have 'properties' field")
-                    else:
-                        # Schema looks valid
-                        st.success("✅ Valid JSON Schema detected!")
-                        
-                        # Show preview
-                        with st.expander("🔍 Schema Preview", expanded=True):
-                            st.json(parsed_schema)
-                        
-                        # Schema analysis
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            num_properties = len(parsed_schema.get("properties", {}))
-                            st.metric("Properties", num_properties)
-                        
-                        with col2:
-                            required_fields = len(parsed_schema.get("required", []))
-                            st.metric("Required Fields", required_fields)
-                        
-                        with col3:
-                            has_arrays = any(
-                                prop.get("type") == "array" 
-                                for prop in parsed_schema.get("properties", {}).values()
-                            )
-                            complexity = "Complex" if has_arrays else "Simple"
-                            st.metric("Complexity", complexity)
-                        
-                        # Use this schema
-                        if st.button("✅ Use This Schema", key="confirm_pasted_schema"):
-                            st.session_state.analysis_schema = parsed_schema
-                            st.session_state.model_configured = True
-                            st.session_state.current_step = max(st.session_state.current_step, 4)
-                            st.success("Schema configured! Ready for structured analysis.")
-                            st.rerun()
-                            
-                except json.JSONDecodeError as e:
-                    st.error(f"❌ Invalid JSON: {str(e)}")
-                    st.info("💡 Check for missing commas, quotes, or brackets")
-                    
-                except Exception as e:
-                    st.error(f"❌ Schema error: {str(e)}")
-            
-            # Help section for schema creation
-            with st.expander("❓ Need Help with JSON Schema Format?"):
-                st.markdown("""
-                **Basic JSON Schema Structure:**
-                ```json
-                {
-                  "type": "object",
-                  "properties": {
-                    "section_name": {"type": "string"},
-                    "list_section": {
-                      "type": "array",
-                      "items": {
-                        "type": "object", 
-                        "properties": {
-                          "field1": {"type": "string"},
-                          "field2": {"type": "string"}
-                        },
-                        "required": ["field1", "field2"]
-                      }
-                    }
-                  },
-                  "required": ["section_name", "list_section"]
-                }
-                ```
-                
-                **Key Points:**
-                - Use lowercase types: "object", "array", "string"
-                - "properties" defines the structure
-                - "required" lists mandatory fields
-                - "items" defines array element structure
-                
-                **Tools for Building Schemas:**
-                - [JSON Schema Validator](https://www.jsonschemavalidator.net/)
-                - [JSON Editor Online](https://jsoneditoronline.org/)
-                """)
-        
-        # Add note about schema-framework relationship
-        if st.session_state.get('analysis_schema'):
-            st.markdown("""
-            <div class="success-box">
-            ✅ <b>Schema Ready!</b> Your framework prompt will provide the analytical method, 
-            while your schema ensures consistent, structured output format.
-            </div>
-            """, unsafe_allow_html=True)
+        # Show current status
+        st.success(f"✅ Ready with {st.session_state.model_name}")
+    
+    # Debug info if there are issues
+    if api_key and not st.session_state.api_configured:
+        with st.expander("🔍 Debug Info"):
+            st.write(f"Key length: {len(api_key)} characters")
+            st.write(f"Starts correctly: {api_key.startswith('AIzaSy')}")
+            st.write(f"Key preview: {api_key[:10]}...")
+            st.write("If this looks wrong, try copying the key again from Google AI Studio.")
 
-def text_input():
-    """Step 4: Text Input for Analysis"""
-    if not st.session_state.model_configured:
-        st.warning("⚠️ Please complete the schema design first")
-        return
+# =============================================================================
+# STEP 2: CHOOSE FRAMEWORK (WITH COMPLETE DISPLAY FIX)
+# =============================================================================
+
+def step_2_choose_framework():
+    """Step 2: Choose analysis framework"""
+    st.markdown('<div class="step-box current-step">', unsafe_allow_html=True)
+    st.markdown("## 📚 Step 2: Choose Your Analysis Framework")
+    st.markdown("Pick an example framework or create your own.")
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="step-header">📖 Step 4: Text Input</div>', unsafe_allow_html=True)
-    
-    # Check if we're using specialized frameworks
-    is_metaphor_framework = st.session_state.analysis_schema == METAPHOR_ANALYSIS_SCHEMA
-    is_framing_framework = st.session_state.analysis_schema == FRAMEWORK_EXAMPLES.get("Political Framing Analysis", {}).get("schema")
-    
-    if is_metaphor_framework:
-        st.markdown("""
-        <div class="info-box">
-        <b>Good Sources for Metaphor Analysis:</b><br>
-        🤖 AI company blogs • 📰 Tech journalism • 📄 Research papers<br>
-        🎤 Tech interviews • 📋 Policy documents • 💼 Product descriptions
-        </div>
-        """, unsafe_allow_html=True)
-        
-        text_options = [
-            "Use example text (AI discourse)",
-            "Paste your own text",
-            "Upload text file"
+    # Framework choice
+    framework_type = st.radio(
+        "What would you like to do?",
+        [
+            "📋 Use an Example Framework (Recommended)",
+            "✏️ Write My Own Framework"
         ]
-    elif is_framing_framework:
-        st.markdown("""
-        <div class="info-box">
-        <b>Good Sources for Framing Analysis:</b><br>
-        🗳️ Political speeches • 📰 News articles • 📺 Campaign materials<br>
-        📋 Policy documents • 💬 Social media posts • 🎤 Debate transcripts
-        </div>
-        """, unsafe_allow_html=True)
-        
-        text_options = [
-            "Use example text (tax relief discourse)",
-            "Paste your own text",
-            "Upload text file"
-        ]
+    )
+    
+    if "Example" in framework_type:
+        show_example_frameworks()
     else:
-        st.markdown("""
-        <div class="info-box">
-        <b>Good Text Sources:</b><br>
-        📰 Articles • 📄 Academic papers • 🎤 Speeches • 📋 Documents<br>
-        💼 Reports • 📚 Literary texts • 🗞️ News stories
-        </div>
-        """, unsafe_allow_html=True)
-        
-        text_options = [
-            "Paste your text",
-            "Upload text file"
-        ]
-    
-    text_method = st.radio("How do you want to input text?", text_options)
-    
-    if text_method == "Use example text (AI discourse)" and is_metaphor_framework:
-        # Load example text for metaphor analysis
-        example_text = """Language models like Claude aren't programmed directly by humans—instead, they're trained on large amounts of data. During that training process, they learn their own strategies to solve problems. These strategies are encoded in the billions of computations a model performs for every word it writes. They arrive inscrutable to us, the model's developers. This means that we don't understand how models do most of the things they do.
+        show_custom_framework()
 
-Knowing how models like Claude think would allow us to have a better understanding of their abilities, as well as help us ensure that they're doing what we intend them to. For example:
-* Claude can speak dozens of languages. What language, if any, is it using "in its head"?
-* Claude writes text one word at a time. Is it only focusing on predicting the next word or does it ever plan ahead?
-* Claude can write out its reasoning step-by-step. Does this explanation represent the actual steps it took to get to an answer, or is it sometimes fabricating a plausible argument for a foregone conclusion?
-
-We take inspiration from the field of neuroscience, which has long studied the messy insides of thinking organisms, and try to build a kind of AI microscope that will let us identify patterns of activity and flows of information. There are limits to what you can learn just by talking to an AI model—after all, humans (even neuroscientists) don't know all the details of how our own brains work. So we look inside.
-
-Today, we're sharing two new papers that represent progress on the development of the "microscope", and the application of it to see new "AI biology". In the first paper, we extend our prior work locating interpretable concepts ("features") inside a model to link those concepts together into computational "circuits", revealing parts of the pathway that transforms the words that go into Claude into the words that come out. In the second, we look inside Claude 3.5 Haiku, performing deep studies of simple tasks representative of ten crucial model behaviors, including the three described above. Our method sheds light on a part of what happens when Claude responds to these prompts, which is enough to see solid evidence that:
-
-* Claude sometimes thinks in a conceptual space that is shared between languages, suggesting it has a kind of universal "language of thought." We show this by translating simple sentences into multiple languages and tracing the overlap in how Claude processes them.
-* Claude will plan what it will say many words ahead, and write to get to that destination. We show this in the realm of poetry, where it thinks of possible rhyming words in advance and writes the next line to get there. This is powerful evidence that even though models are trained to output one word at a time, they may think on much longer horizons to do so.
-* Claude, on occasion, will give a plausible-sounding argument designed to agree with the user rather than to follow logical steps. We show this by asking it for help on a hard math problem while giving it an incorrect hint. We are able to "catch it in the act" as it makes up its fake reasoning, providing a proof of concept that our tools can be useful for flagging concerning mechanisms in models."""
-        
-        st.session_state.text_to_analyze = example_text
-        st.success("✅ Example text loaded - rich in AI metaphors!")
-        
-        with st.expander("📖 View Example Text", expanded=False):
-            st.text_area("Example text:", value=example_text, height=200, disabled=True)
+def show_example_frameworks():
+    """Show example framework options with COMPLETE framework display"""
+    st.markdown("### 🎓 Example Frameworks")
     
-    elif text_method == "Use example text (tax relief discourse)" and is_framing_framework:
-        # Load example text for framing analysis
-        example_text = """The Finance Committee tax overhaul delivers benefits directly to the working and middle class through doubling the standard deduction and the child tax credit, as well as lowering rates across the board... Last night, the Senate Finance Committee passed comprehensive legislation to overhaul the nation’s broken tax code and create a fairer system that will move America forward, boost job growth, and increase hard-working Americans’ take-home pay. The Finance Committee’s tax reform plan includes the repeal of the regressive and punitive individual mandate tax, providing relief for working-class families who may not be able to afford or may not want to purchase health insurance. The proposal has received high-praise from thought-leaders.... The Senate Finance Committee kicked-off its markup of a once-in-a-generation opportunity to overhaul our nation’s tax code. In their opening statements, Republicans up and down the dais highlighted a key feature of the Tax Cuts and Jobs Act – tax relief and increased take-home pay for the middle class."""
-        
-        st.session_state.text_to_analyze = example_text
-        st.success("✅ Example text loaded - rich in framing language!")
-        
-        with st.expander("📖 View Example Text", expanded=False):
-            st.text_area("Example text:", value=example_text, height=200, disabled=True)
+    # Simple framework selection
+    framework_names = list(FRAMEWORK_EXAMPLES.keys())
+    selected_name = st.selectbox(
+        "Choose a framework:",
+        framework_names,
+        format_func=lambda x: f"📋 {x}"
+    )
     
-    elif "Paste" in text_method:
-        text_to_analyze = st.text_area(
-            "Text to Analyze",
-            value=st.session_state.get('text_to_analyze', ''),
-            height=300,
-            placeholder="Paste your text here...",
-            help="The AI will apply your framework to analyze this text"
-        )
-        if text_to_analyze:
-            st.session_state.text_to_analyze = text_to_analyze
-    
-    else:  # Upload file
-        uploaded_file = st.file_uploader("Upload text file", type=['txt', 'md'])
-        if uploaded_file:
-            text_to_analyze = uploaded_file.read().decode('utf-8')
-            st.session_state.text_to_analyze = text_to_analyze
-            st.success(f"✅ File uploaded: {len(text_to_analyze):,} characters")
-    
-    # Show text stats if we have text
-    if st.session_state.get('text_to_analyze'):
-        st.session_state.current_step = max(st.session_state.current_step, 5)
+    if selected_name:
+        framework = FRAMEWORK_EXAMPLES[selected_name]
         
-        text_length = len(st.session_state.text_to_analyze)
-        col1, col2, col3 = st.columns(3)
+        # Show framework info
+        col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.metric("Text Length", f"{text_length:,} chars")
+            st.markdown(f"**{selected_name}**")
+            st.write(framework['description'])
+            st.write(f"**Field:** {framework['discipline']}")
+            
+            # FIXED: Show COMPLETE framework instead of truncated version
+            with st.expander("🔍 See Complete Framework Details"):
+                st.text_area(
+                    "Complete Framework Instructions:",
+                    value=framework['prompt'],  # REMOVED the [:500] + "..." truncation
+                    height=400,  # Increased height to accommodate full text
+                    disabled=True
+                )
+                
+                # Add download button for the framework
+                st.download_button(
+                    label="💾 Download Framework Text",
+                    data=framework['prompt'],
+                    file_name=f"{selected_name.lower().replace(' ', '_')}_framework.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+        
         with col2:
-            est_time = "1-2 min" if text_length < 10000 else "3-5 min"
-            st.metric("Est. Time", est_time)
-        with col3:
-            status = "Good" if 1000 < text_length < 25000 else "Check length"
-            st.metric("Status", status)
+            st.markdown("**What you'll get:**")
+            if "Metaphor" in selected_name:
+                st.markdown("""
+                • Metaphor identification
+                • Source-target mapping  
+                • Explanation analysis
+                • AI literacy insights
+                """)
+            elif "Framing" in selected_name:
+                st.markdown("""
+                • Frame identification
+                • Role assignments
+                • Reasoning effects
+                • Political implications
+                """)
+            elif "Rhetorical" in selected_name:
+                st.markdown("""
+                • Ethos, pathos, logos
+                • Appeal effectiveness
+                • Audience analysis
+                • Strategic assessment
+                """)
+        
+        # Use this framework
+        if st.button(f"✅ Use {selected_name}", type="primary", use_container_width=True):
+            st.session_state.selected_framework = selected_name
+            st.session_state.framework_prompt = framework['prompt']
+            st.session_state.framework_schema = framework['schema']
+            st.success(f"Great! Using {selected_name}")
+            st.balloons()
 
-def run_analysis():
-    """Step 5: Run the AI Analysis"""
-    if not st.session_state.get('text_to_analyze'):
-        st.warning("⚠️ Please input text to analyze first")
-        return
+def show_custom_framework():
+    """Show custom framework creation"""
+    st.markdown("### ✏️ Create Your Own Framework")
     
-    st.markdown('<div class="step-header">🎯 Step 5: AI Analysis</div>', unsafe_allow_html=True)
+    st.info("""
+    **Tips for good frameworks:**
+    • Explain your theoretical approach
+    • Give clear analysis instructions  
+    • Include examples of what you want
+    • Specify output format
+    """)
     
-    # Show analysis parameters
-    col1, col2 = st.columns(2)
+    custom_prompt = st.text_area(
+        "Write your framework instructions:",
+        height=300,
+        placeholder="""Example:
+
+# Literary Character Analysis
+
+Analyze how the author develops characters in this text.
+
+**Instructions:**
+1. Identify main characters
+2. Find evidence of character development
+3. Analyze literary techniques used
+4. Assess effectiveness
+
+**Output:**
+Provide structured analysis with quotes and explanations.""",
+        value=st.session_state.framework_prompt
+    )
+    
+    if custom_prompt and len(custom_prompt) > 100:
+        st.session_state.framework_prompt = custom_prompt
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Length", f"{len(custom_prompt)} characters")
+        with col2:
+            quality = "Good" if len(custom_prompt) > 300 else "Too short"
+            st.metric("Quality", quality)
+        
+        if st.button("✅ Use My Framework", type="primary"):
+            st.session_state.selected_framework = "Custom Framework"
+            st.session_state.framework_schema = None  # Freeform output
+            st.success("Custom framework ready!")
+
+# =============================================================================
+# STEP 3: ADD TEXT
+# =============================================================================
+
+def step_3_add_text():
+    """Step 3: Add text to analyze"""
+    st.markdown('<div class="step-box current-step">', unsafe_allow_html=True)
+    st.markdown("## 📖 Step 3: Add Text to Analyze")
+    st.markdown("Provide the text you want to analyze with your framework.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Show what framework we're using
+    st.info(f"**Using:** {st.session_state.selected_framework}")
+    
+    # Text input options
+    text_method = st.radio(
+        "How do you want to add text?",
+        get_text_options()
+    )
+    
+    if "example" in text_method.lower():
+        handle_example_text(text_method)
+    elif "paste" in text_method.lower():
+        handle_paste_text()
+    else:
+        handle_upload_text()
+    
+    # Show text stats if we have text
+    if st.session_state.text_to_analyze:
+        show_simple_text_stats()
+
+def get_text_options():
+    """Get text input options based on framework"""
+    options = ["✏️ Paste my own text", "📄 Upload a file"]
+    
+    # Add example text options based on framework
+    if st.session_state.selected_framework:
+        if "Metaphor" in st.session_state.selected_framework:
+            options.insert(0, "📋 Use example (AI technology text)")
+        elif "Framing" in st.session_state.selected_framework:
+            options.insert(0, "📋 Use example (political speech)")
+        elif "Rhetorical" in st.session_state.selected_framework:
+            options.insert(0, "📋 Use example (MLK's Letter)")
+    
+    return options
+
+def handle_example_text(method):
+    """Handle example text selection"""
+    if "AI technology" in method:
+        st.session_state.text_to_analyze = METAPHOR_EXAMPLE_TEXT
+        st.success("✅ Loaded AI technology example text")
+        
+    elif "political speech" in method:
+        st.session_state.text_to_analyze = FRAMING_EXAMPLE_TEXT  
+        st.success("✅ Loaded political speech example text")
+        
+    elif "MLK" in method:
+        st.session_state.text_to_analyze = RHETORICAL_EXAMPLE_TEXT
+        st.success("✅ Loaded MLK Letter example text")
+    
+    # Show preview
+    if st.session_state.text_to_analyze:
+        with st.expander("👀 Preview text"):
+            st.text_area(
+                "Text preview:",
+                value=st.session_state.text_to_analyze[:500] + "...",
+                height=150,
+                disabled=True
+            )
+
+def handle_paste_text():
+    """Handle text pasting"""
+    text = st.text_area(
+        "Paste your text here:",
+        value=st.session_state.text_to_analyze,
+        height=300,
+        placeholder="Paste the text you want to analyze..."
+    )
+    
+    if text:
+        st.session_state.text_to_analyze = text
+
+def handle_upload_text():
+    """Handle file upload"""
+    uploaded_file = st.file_uploader(
+        "Choose a text file:",
+        type=['txt', 'md']
+    )
+    
+    if uploaded_file:
+        try:
+            text = uploaded_file.read().decode('utf-8')
+            st.session_state.text_to_analyze = text
+            st.success(f"✅ Loaded {uploaded_file.name}")
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+
+def show_simple_text_stats():
+    """Show simple text statistics"""
+    text_length = len(st.session_state.text_to_analyze)
+    word_count = len(st.session_state.text_to_analyze.split())
+    
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-        st.info(f"**Framework:** {len(st.session_state.framework_prompt):,} characters")
-        st.info(f"**Text Length:** {len(st.session_state.text_to_analyze):,} characters")
+        st.metric("Characters", f"{text_length:,}")
+    with col2:
+        st.metric("Words", f"{word_count:,}")
+    with col3:
+        if text_length < 1000:
+            status = "Short"
+        elif text_length > 25000:
+            status = "Long"
+        else:
+            status = "Good"
+        st.metric("Length", status)
+
+# =============================================================================
+# STEP 4: RUN ANALYSIS (WITH ENHANCED JSON ERROR HANDLING)
+# =============================================================================
+
+def step_4_run_analysis():
+    """Step 4: Run the analysis with enhanced JSON error handling"""
+    st.markdown('<div class="step-box current-step">', unsafe_allow_html=True)
+    st.markdown("## 🎯 Step 4: Run Analysis")
+    st.markdown("Ready to analyze your text with AI!")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Show what we're about to analyze
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📋 Analysis Setup:**")
+        st.write(f"• **Framework:** {st.session_state.selected_framework}")
+        st.write(f"• **Text length:** {len(st.session_state.text_to_analyze):,} characters")
+        st.write(f"• **Model:** {st.session_state.model_name}")
     
     with col2:
-        format_type = "Structured" if st.session_state.analysis_schema else "Text"
-        st.info(f"**Output Format:** {format_type}")
-        st.info(f"**Model:** {st.session_state.model_name}")
+        st.markdown("**⏱️ Expected time:**")
+        text_length = len(st.session_state.text_to_analyze)
+        if text_length < 5000:
+            est_time = "30-60 seconds"
+        elif text_length < 15000:
+            est_time = "1-2 minutes"
+        else:
+            est_time = "2-3 minutes"
+        st.write(f"• **Estimated:** {est_time}")
     
-    # Show current model configuration
-    with st.expander("🔧 Current Model Configuration", expanded=False):
-        config_display = {
-            "Model": st.session_state.model_name,
-            **st.session_state.generation_config
-        }
-        st.json(config_display)
-    
-    if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
-        # Use the external analysis runner with current config
-        result = run_ai_analysis(
-            st.session_state.text_to_analyze,
-            st.session_state.framework_prompt,
-            st.session_state.analysis_schema,
-            st.session_state.model_name,
-            st.session_state.generation_config
+    # Run analysis button
+    if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
+        run_the_analysis()
+
+def run_the_analysis():
+    """Run analysis with enhanced JSON error handling"""
+    try:
+        # Double-check API key exists
+        if not st.session_state.api_key:
+            st.error("❌ No API key found. Please go back to Step 1.")
+            return
+        
+        # Configure API
+        genai.configure(api_key=st.session_state.api_key)
+        
+        # Show progress
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("🤖 Configuring API...")
+        progress_bar.progress(10)
+        
+        # Test API key again before analysis
+        try:
+            test_model = genai.GenerativeModel(st.session_state.model_name)
+            status_text.text("🔑 API key verified...")
+            progress_bar.progress(25)
+        except Exception as api_error:
+            st.error(f"❌ API key validation failed: {str(api_error)}")
+            st.error("Please go back to Step 1 and check your API key.")
+            return
+        
+        status_text.text("🤖 Starting analysis...")
+        progress_bar.progress(50)
+        
+        # Run analysis using ENHANCED function with better error handling
+        result = run_ai_analysis_enhanced(
+            text=st.session_state.text_to_analyze,
+            framework_prompt=st.session_state.framework_prompt,
+            analysis_schema=st.session_state.framework_schema,
+            model_name=st.session_state.model_name,
+            generation_config={
+                'temperature': 0.8,
+                'top_p': 0.8,
+                'top_k': 10,
+                'max_output_tokens': 8192
+            }
         )
+        
+        progress_bar.progress(100)
+        status_text.text("✅ Analysis complete!")
         
         if result:
             st.session_state.analysis_results = result
-            st.session_state.analysis_history.append(result)
-            st.session_state.current_step = max(st.session_state.current_step, 6)
-            st.success("🎉 Analysis completed successfully!")
-            st.rerun()
+            st.success("🎉 Analysis finished! Ready to view results.")
+            st.balloons()
         else:
-            st.error("❌ Analysis failed. Please check your inputs and try again.")
+            st.error("❌ Analysis failed. Please try again.")
+            
+    except Exception as e:
+        st.error(f"❌ Error during analysis: {str(e)}")
+        st.info("💡 Try going back to Step 1 to re-enter your API key.")
+        
+        # Show debug info
+        with st.expander("🔍 Debug Info"):
+            st.write(f"API Key exists: {bool(st.session_state.api_key)}")
+            st.write(f"API Key length: {len(st.session_state.api_key) if st.session_state.api_key else 0}")
+            st.write(f"Model: {st.session_state.model_name}")
+            if st.session_state.api_key:
+                st.write(f"Key starts with: {st.session_state.api_key[:10]}...")
 
-def display_results():
-    """Display analysis results"""
-    if not st.session_state.analysis_results:
-        st.warning("⚠️ No analysis results yet. Run an analysis first.")
-        return
+def run_ai_analysis_enhanced(text, framework_prompt, analysis_schema=None, model_name="gemini-2.5-flash", generation_config=None):
+    """
+    Enhanced AI analysis with robust JSON error handling
     
-    st.markdown('<div class="step-header">📊 Analysis Results</div>', unsafe_allow_html=True)
+    Args:
+        text: Text to analyze
+        framework_prompt: The theoretical framework prompt
+        analysis_schema: Optional JSON schema for structured output
+        model_name: Gemini model to use
+        generation_config: Model generation parameters
+        
+    Returns:
+        dict: Analysis results with metadata
+    """
+    
+    # Default generation config if none provided
+    if generation_config is None:
+        generation_config = {
+            "temperature": 0.8,
+            "top_p": 0.8,
+            "top_k": 10,
+            "max_output_tokens": 8192
+        }
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    try:
+        # Configure the model based on whether we have a schema
+        if analysis_schema:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                generation_config={
+                    **generation_config,
+                    "response_mime_type": "application/json",
+                    "response_schema": analysis_schema
+                },
+                system_instruction=framework_prompt
+            )
+            use_json = True
+        else:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                generation_config=generation_config,
+                system_instruction=framework_prompt
+            )
+            use_json = False
+        
+        # Generate the content
+        response = model.generate_content(text)
+        
+        # Extract and process the response
+        analysis_text = response.text
+        
+        if use_json:
+            try:
+                # Clean and parse JSON with enhanced error handling
+                cleaned_text = analysis_text.strip()
+                analysis_data = json.loads(cleaned_text)
+                st.success("✅ JSON parsing successful!")
+            except json.JSONDecodeError as e:
+                st.warning(f"⚠️ JSON parsing failed: {e}")
+                st.info("🔧 Attempting to fix JSON formatting...")
+                
+                # Try to fix common JSON issues
+                try:
+                    fixed_text = fix_json_string(cleaned_text)
+                    analysis_data = json.loads(fixed_text)
+                    st.success("✅ JSON automatically repaired!")
+                except:
+                    st.warning("🔄 Using text format instead of structured output")
+                    analysis_data = analysis_text
+                    use_json = False
+        else:
+            analysis_data = analysis_text
+        
+        # Create the result object
+        result = {
+            "timestamp": timestamp,
+            "model": model_name,
+            "generation_config": generation_config,
+            "framework_preview": framework_prompt[:200] + "..." if len(framework_prompt) > 200 else framework_prompt,
+            "text_preview": text[:200] + "..." if len(text) > 200 else text,
+            "text_length": len(text),
+            "use_json": use_json,
+            "analysis": analysis_data,
+            "raw_response": analysis_text,
+            "metadata": {}
+        }
+        
+        # Safely extract usage metadata
+        try:
+            if hasattr(response, 'usage_metadata'):
+                usage = response.usage_metadata
+                result["metadata"] = {
+                    "prompt_tokens": getattr(usage, 'prompt_token_count', None),
+                    "response_tokens": getattr(usage, 'candidates_token_count', None),
+                    "total_tokens": getattr(usage, 'total_token_count', None)
+                }
+            else:
+                result["metadata"] = {
+                    "prompt_tokens": None,
+                    "response_tokens": None,
+                    "total_tokens": None
+                }
+        except Exception as metadata_error:
+            st.warning(f"⚠️ Could not extract usage metadata: {metadata_error}")
+            result["metadata"] = {
+                "prompt_tokens": None,
+                "response_tokens": None,
+                "total_tokens": None
+            }
+        
+        return result
+        
+    except Exception as e:
+        st.error(f"❌ Analysis failed: {str(e)}")
+        st.info("💡 Troubleshooting tips:")
+        st.info("• Check your API key configuration")
+        st.info(f"• Verify model '{model_name}' is available")
+        st.info("• Try with shorter text (under 25,000 characters)")
+        st.info("• Verify your framework prompt is properly formatted")
+        return None
+
+def fix_json_string(json_str):
+    """
+    Attempt to fix common JSON formatting issues
+    
+    Args:
+        json_str: The malformed JSON string
+        
+    Returns:
+        str: Potentially fixed JSON string
+    """
+    
+    # Remove any non-printable characters
+    json_str = ''.join(char for char in json_str if ord(char) >= 32 or char in '\n\r\t')
+    
+    # Fix common quote issues
+    # Replace smart quotes with regular quotes
+    json_str = json_str.replace('"', '"').replace('"', '"')
+    json_str = json_str.replace(''', "'").replace(''', "'")
+    
+    # Fix newlines within strings
+    json_str = re.sub(r'(?<!\\)\n(?![}\]])', '\\n', json_str)
+    
+    # Fix unescaped quotes within strings
+    # This is a simple approach - more sophisticated fixing could be added
+    json_str = re.sub(r'(?<!\\)"(?=.*[^"]*"[^"]*$)', '\\"', json_str)
+    
+    # Remove trailing commas
+    json_str = re.sub(r',\s*}', '}', json_str)
+    json_str = re.sub(r',\s*]', ']', json_str)
+    
+    # Try to find and complete incomplete JSON
+    # Count braces and brackets
+    open_braces = json_str.count('{') - json_str.count('}')
+    open_brackets = json_str.count('[') - json_str.count(']')
+    
+    # Add missing closing braces/brackets
+    json_str += '}' * open_braces
+    json_str += ']' * open_brackets
+    
+    return json_str
+
+# =============================================================================
+# STEP 5: VIEW RESULTS
+# =============================================================================
+
+def step_5_view_results():
+    """Step 5: View and download results"""
+    st.markdown('<div class="step-box current-step">', unsafe_allow_html=True)
+    st.markdown("## 📊 Step 5: Your Analysis Results")
+    st.markdown("Here's what the AI found using your framework!")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    if not st.session_state.analysis_results:
+        st.error("No results found. Please run analysis first.")
+        return
     
     result = st.session_state.analysis_results
     
-    # Results header
+    # Quick stats
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.info(f"**Generated:** {result['timestamp']}")
+        st.metric("Framework", st.session_state.selected_framework)
     with col2:
-        st.info(f"**Format:** {'Structured' if result.get('use_json') else 'Text'}")
+        st.metric("Analysis Type", "Structured" if result.get('use_json') else "Freeform")
     with col3:
-        if result.get('metadata', {}).get('total_tokens'):
-            st.info(f"**Tokens:** {result['metadata']['total_tokens']:,}")
+        timestamp = datetime.strptime(result['timestamp'], '%Y%m%d_%H%M%S').strftime('%H:%M')
+        st.metric("Completed", timestamp)
     
-    # Use specialized display for different analysis types
-    if isinstance(result['analysis'], dict) and 'metaphorAudit' in result['analysis']:
-        display_metaphor_results(result['analysis'])
-    else:
-        # Generic display
-        st.subheader("📄 Analysis Results")
-        if isinstance(result['analysis'], dict):
-            # Pretty display for structured results
-            for section_name, section_content in result['analysis'].items():
-                with st.expander(f"📂 {section_name.replace('_', ' ').title()}", expanded=True):
-                    if isinstance(section_content, list):
-                        if not section_content:
-                            st.write("*No items found*")
-                        else:
-                            for i, item in enumerate(section_content, 1):
-                                if isinstance(item, dict):
-                                    st.markdown(f"**Item {i}:**")
-                                    for field_name, field_value in item.items():
-                                        st.write(f"• **{field_name.replace('_', ' ').title()}:** {field_value}")
-                                else:
-                                    st.write(f"{i}. {item}")
-                                if i < len(section_content):
-                                    st.divider()
-                    
-                    elif isinstance(section_content, dict):
-                        for sub_name, sub_content in section_content.items():
-                            st.write(f"**{sub_name.replace('_', ' ').title()}:** {sub_content}")
-                    
-                    else:
-                        st.write(section_content)
+    st.markdown("---")
+    
+    # Display results using specialized functions
+    analysis = result['analysis']
+    
+    if isinstance(analysis, dict):
+        if 'metaphorAudit' in analysis:
+            display_metaphor_results(analysis)
+        elif 'frames' in analysis:
+            display_framing_results(analysis)
+        elif 'ethos_analysis' in analysis:
+            display_rhetorical_results(analysis)
         else:
-            st.write(result['analysis'])
+            # Generic structured display
+            display_generic_results(analysis)
+    else:
+        # Freeform text display
+        st.markdown("### 📝 Analysis Results")
+        st.write(analysis)
     
     # Download options
-    st.subheader("💾 Download Results")
+    st.markdown("---")
+    st.markdown("### 💾 Download Your Results")
+    
     col1, col2 = st.columns(2)
     
     with col1:
+        # JSON download
         json_str = json.dumps(result, indent=2, ensure_ascii=False)
         st.download_button(
-            label="📄 Download JSON",
+            label="📄 Download JSON Data",
             data=json_str,
             file_name=f"analysis_{result['timestamp']}.json",
-            mime="application/json"
+            mime="application/json",
+            use_container_width=True
         )
     
     with col2:
+        # Report download
         markdown_report = create_markdown_report(result)
         st.download_button(
-            label="📝 Download Report",
+            label="📋 Download Report",
             data=markdown_report,
-            file_name=f"analysis_report_{result['timestamp']}.md",
-            mime="text/markdown"
-        )
-
-def reflection_section():
-    """Step 6: Critical Reflection"""
-    if not st.session_state.analysis_results:
-        st.warning("⚠️ Complete an analysis first before reflecting")
-        return
-    
-    st.markdown('<div class="step-header">🤔 Step 6: Critical Reflection</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="info-box">
-    <b>Reflect on AI as both INSTRUMENT and OBJECT:</b><br>
-    🔧 <b>AI as Instrument:</b> How well did it apply your framework?<br>
-    🔍 <b>AI as Object:</b> What does its performance reveal about AI capabilities?
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Guided questions
-    with st.expander("📋 Reflection Guide Questions", expanded=True):
-        st.markdown("""
-        **🔧 AI as Analytical Instrument:**
-        - How accurately did the AI apply your theoretical framework?
-        - What aspects did it handle well vs. poorly?
-        - Were the examples and quotes appropriate and insightful?
-        - How does the analysis compare to what a human expert might produce?
-        
-        **🔍 AI as Object of Study:**
-        - What patterns did you notice in how the AI interprets theory?
-        - What does the AI's performance reveal about its strengths/limitations?
-        - How does AI analytical thinking differ from human thinking?
-        - What biases or blind spots did you observe?
-        
-        **💭 Synthesis and Implications:**
-        - How has this changed your understanding of AI capabilities?
-        - What are the ethical implications of using AI for analysis?
-        - How might AI tools change academic research and writing?
-        """
+            file_name=f"report_{result['timestamp']}.md",
+            mime="text/markdown",
+            use_container_width=True
         )
     
-    reflection_text = st.text_area(
-        "Your Reflection",
-        value=st.session_state.reflection_text,
-        height=400,
-        placeholder="Write your critical reflection here...\n\nConsider specific examples from your analysis results, comparisons to manual analysis, insights about AI capabilities and limitations, and implications for academic integrity and scholarship.",
-        help="This reflection is a key deliverable for understanding AI literacy"
-    )
+    # Start over option
+    st.markdown("---")
+    if st.button("🔄 Analyze Different Text", use_container_width=True):
+        st.session_state.step = 3  # Go back to text input
+        st.session_state.text_to_analyze = ""
+        st.rerun()
+
+def display_generic_results(analysis):
+    """Display generic structured results"""
+    st.markdown("### 📄 Structured Results")
     
-    if reflection_text:
-        st.session_state.reflection_text = reflection_text
+    for section_name, content in analysis.items():
+        section_title = section_name.replace('_', ' ').title()
         
-        # Reflection analysis
-        reflection_length = len(reflection_text)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Reflection Length", f"{reflection_length:,} chars")
-        
-        with col2:
-            if reflection_length < 500:
-                st.metric("Status", "Too Short", delta="⚠️")
-            else:
-                st.metric("Status", "Good", delta="✅")
-        
-        if reflection_length >= 500:
-            st.success("✅ Substantial reflection provided!")
-        
-        # Download reflection
-        if st.button("💾 Download Reflection"):
-            reflection_content = f"""# AI Framework Analysis Reflection
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## Analysis Summary
-- **Framework Used:** {st.session_state.framework_prompt[:100]}...
-- **Model Used:** {st.session_state.analysis_results.get('model', 'Unknown')}
-- **Text Analyzed:** {st.session_state.analysis_results['text_length']:,} characters
-- **Analysis Format:** {'Structured' if st.session_state.analysis_results.get('use_json') else 'Text'}
-- **Generated:** {st.session_state.analysis_results['timestamp']}
-
-## Critical Reflection
-
-{reflection_text}
-"""
+        with st.expander(f"📂 {section_title}", expanded=True):
+            if isinstance(content, list):
+                for i, item in enumerate(content, 1):
+                    if isinstance(item, dict):
+                        st.markdown(f"**Item {i}:**")
+                        for key, value in item.items():
+                            st.write(f"• **{key.replace('_', ' ').title()}:** {value}")
+                    else:
+                        st.write(f"{i}. {item}")
+                    
+                    if i < len(content):
+                        st.markdown("---")
             
-            st.download_button(
-                label="📄 Download Reflection",
-                data=reflection_content,
-                file_name=f"reflection_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                mime="text/markdown"
-            )
+            elif isinstance(content, dict):
+                for key, value in content.items():
+                    st.write(f"**{key.replace('_', ' ').title()}:** {value}")
+            
+            else:
+                st.write(content)
 
-def main():
-    """Main application"""
-    init_session_state()
-    
-    # Header
-    st.markdown('<div class="main-header">🔬 AI Framework Analysis Tool v2</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="info-box">
-    <b>Welcome!</b> Apply theoretical frameworks to texts using AI, then critically examine both the results and the AI's performance.<br>
-    <b>Note:</b> This is v2 with enhanced schema building capabilities and example frameworks.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Progress indicator
-    display_progress()
-    
-    # Sidebar navigation
-    st.sidebar.title("📋 Navigation")
-    
-    sections = {
-        "🔑 API Setup": setup_api,
-        "📚 Framework": framework_input,
-        "🏗️ Schema Builder": schema_builder,
-        "📖 Text Input": text_input,
-        "🎯 Run Analysis": run_analysis,
-        "📊 View Results": display_results,
-        "🤔 Reflection": reflection_section
-    }
-    
-    selected_section = st.sidebar.radio(
-        "Choose a section:",
-        list(sections.keys()),
-        index=0,  # Always start at first section
-        key="main_navigation"
-    )
-    
-    # Show selected section
-    sections[selected_section]()
-    
-    # Sidebar status
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📈 Status")
-    
-    status_items = [
-        ("API Configured", st.session_state.api_configured),
-        ("Framework Set", bool(st.session_state.framework_prompt)),
-        ("Schema Ready", st.session_state.model_configured),
-        ("Text Input", bool(st.session_state.get('text_to_analyze'))),
-        ("Analysis Complete", bool(st.session_state.analysis_results)),
-        ("Reflection Written", bool(st.session_state.reflection_text))
-    ]
-    
-    for item, status in status_items:
-        emoji = "✅" if status else "⏳"
-        st.sidebar.write(f"{emoji} {item}")
-    
-    # Analysis history in sidebar
-    if st.session_state.analysis_history:
-        st.sidebar.markdown("---")
-        st.sidebar.subheader(f"📚 Analysis History ({len(st.session_state.analysis_history)})")
-        for i, run in enumerate(st.session_state.analysis_history[-3:], 1):  # Show last 3
-            st.sidebar.write(f"📄 Run {i}: {run['timestamp']}")
+# =============================================================================
+# RUN THE APP
+# =============================================================================
 
 if __name__ == "__main__":
     main()
