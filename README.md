@@ -88,11 +88,10 @@ This tool serves as **Step 9** of the Prompt-as-Instrument Workshop, where stude
 
 ### Step 1: API Setup
 - Configure Google AI API key with connection testing
-- Select from available Gemini models (2.0-flash, 2.0-pro, etc.)
-- Adjust parameters (temperature, token limits) for educational needs
+- Uses Gemini model (2.5-flash)
 
 ### Step 2: Framework Selection  
-- Browse three sophisticated frameworks with complete theoretical context
+- Browse hardcoded frameworks with complete theoretical context
 - View full prompts and schemas (educational transparency)
 - Download framework documentation and workshop resources
 
@@ -134,21 +133,14 @@ This tool serves as **Step 9** of the Prompt-as-Instrument Workshop, where stude
 ## Technical Specifications
 
 ### AI Models Supported
-- **gemini-2.0-flash**: Balanced performance (default, recommended)
-- **gemini-2.0-pro**: Enhanced reasoning for complex frameworks
-- **gemini-1.5-flash**: Alternative option
-- **learnlm-1.5-pro-experimental**: Educational optimization
+- **gemini-2.5-flash**: Balanced performance (default, recommended)
+- Can use any other of the 2.5 models
 
 ### Enhanced Error Handling
 - **Smart JSON Repair**: Automatic fixing of common formatting issues
 - **Graceful Fallbacks**: Text format when JSON repair fails
 - **User Feedback**: Clear error messages and troubleshooting guidance
 - **Retry Mechanism**: Users can easily re-run failed analyses
-
-### Configuration Options
-- **Temperature control**: Balance creativity vs. consistency (0.0-1.0)
-- **Token limits**: Configurable response length (1000-8000 tokens)
-- **Educational parameters**: Optimized defaults for pedagogical use
 
 ## Deployment
 
@@ -233,6 +225,7 @@ streamlit run app.py
 ## License
 
 Open source - designed for educational and research use. Contributions welcome under educational fair use principles. Tool developed to support responsible AI literacy education in humanities contexts.
+AI Framework Analysis Tool © 2025 by TD is licensed under CC BY-NC-SA 4.0. To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 ## Citation
 
