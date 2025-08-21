@@ -2,6 +2,8 @@
 
 A Streamlit application for applying theoretical frameworks to texts using AI, designed as the digital scholarship extension for the **"Prompt-as-Instrument Workshop: Using LLMs to Perform Theory-Driven Readings of Human Texts."**
 
+*Developed as part of the AI literacy initiatives of W&M Libraries.*
+
 ## Educational Context
 
 This tool serves as **Step 9** of the Prompt-as-Instrument Workshop, where students approach AI literacy as interpretive practice. Students use LLMs as both *instrument* (enacting theoretical methods) and *object* (producing outputs for critical analysis). The tool integrates with ACRL Framework standards including Research as Inquiry, Information Creation as Process, and Authority as Constructed.
@@ -132,9 +134,10 @@ This tool serves as **Step 9** of the Prompt-as-Instrument Workshop, where stude
 ## Technical Specifications
 
 ### AI Models Supported
-- **gemini-2.5-flash**: Balanced performance (default, recommended)
-- **gemini-2.5-pro**: Enhanced reasoning for complex frameworks
-
+- **gemini-2.0-flash**: Balanced performance (default, recommended)
+- **gemini-2.0-pro**: Enhanced reasoning for complex frameworks
+- **gemini-1.5-flash**: Alternative option
+- **learnlm-1.5-pro-experimental**: Educational optimization
 
 ### Enhanced Error Handling
 - **Smart JSON Repair**: Automatic fixing of common formatting issues
@@ -236,5 +239,5 @@ Open source - designed for educational and research use. Contributions welcome u
 When using this tool in academic work or sharing with students, please cite as:
 ```
 AI Framework Analysis Tool: Digital Extension for Prompt-as-Instrument Workshop.
-W&M Libraries], 2025. https://libraries.wm.edu]
+[W&M Libraries], 2025. https://[libraries.wm.edu]
 ```

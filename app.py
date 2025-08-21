@@ -23,18 +23,29 @@ from display_utils import (
 # =============================================================================
 
 st.set_page_config(
-    page_title="AI Framework Analysis Tool",
+    page_title="AI Framework Analysis Tool - W&M Libraries",
     page_icon="🔬",
     layout="wide"
 )
 
-# Complete CSS with workshop styles
+# Complete CSS with workshop styles and W&M branding
 st.markdown("""
 <style>
 .big-header {
     font-size: 2.5rem;
     font-weight: bold;
     color: #1f77b4;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.wm-attribution {
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+.wm-link {
     text-align: center;
     margin-bottom: 2rem;
 }
@@ -71,6 +82,12 @@ st.markdown("""
     opacity: 0.9;
     font-style: italic;
 }
+.wm-workshop-attribution {
+    color: #f8f9fa;
+    font-size: 1rem;
+    margin-top: 1rem;
+    opacity: 0.9;
+}
 .objective-box {
     background: #f8f9fa;
     border-left: 5px solid #28a745;
@@ -106,6 +123,21 @@ st.markdown("""
     border-radius: 10px;
     margin: 1.5rem 0;
 }
+.wm-sidebar {
+    background: #f0f2f6;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #1f77b4;
+    margin: 1rem 0;
+}
+.footer-attribution {
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.85rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+    margin-top: 2rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -137,13 +169,17 @@ def init_simple_state():
 # =============================================================================
 
 def show_workshop_page():
-    """Enhanced workshop page that properly integrates with the actual pedagogical framework"""
+    """Enhanced workshop page with W&M Libraries attribution"""
     
-    # Workshop Header - Updated to match actual workshop
+    # Workshop Header with W&M attribution
     st.markdown("""
     <div class="workshop-header">
         <div class="workshop-title">🔬 Prompt-as-Instrument Workshop</div>
         <div class="workshop-subtitle">Using LLMs to Perform Theory-Driven Readings of Human Texts</div>
+        <div class="wm-workshop-attribution">
+            Part of the AI literacy initiatives of 
+            <a href="https://libraries.wm.edu" style="color: #fff3cd;">W&M Libraries</a>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -151,7 +187,7 @@ def show_workshop_page():
     st.markdown("## 🎓 Digital Scholarship Extension")
     
     st.markdown("""
-    This tool serves as the **digital scholarship extension** for the Prompt-as-Instrument Workshop. 
+    This tool from [W&M Libraries](https://libraries.wm.edu) serves as the **digital scholarship extension** for the Prompt-as-Instrument Workshop. 
     While the main workshop has students manually work through framework selection, prompt writing, and 
     iterative testing, this tool provides a **technological scaffold** for exploring these concepts.
     
@@ -178,7 +214,7 @@ def show_workshop_page():
     with col2:
         st.markdown("""
         **Steps 5-8: Implementation & Critique** *(Tool-Supported)*
-        5. ✍️ **Write Your Prompt** *(Authority as Constructed)*
+        5. ✏️ **Write Your Prompt** *(Authority as Constructed)*
         6. 🔄 **Test and Revise** *(Information Creation)*
         7. 📋 **Annotate the Output** *(Authority as Constructed)*
         8. 💭 **Write Your Reflection** *(Information Has Value)*
@@ -219,7 +255,7 @@ def show_workshop_page():
     
     with col2:
         st.markdown("""
-        **🔍 Searching as Strategic Exploration**  
+        **🔎 Searching as Strategic Exploration**  
         *Locating and synthesizing scholarly frameworks*
         
         **💬 Scholarship as Conversation**  
@@ -298,35 +334,41 @@ def show_workshop_page():
             use_container_width=True
         )
     
-    # Footer with pedagogical context
+    # Footer with pedagogical context, W&M attribution, and Creative Commons license
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #6c757d; margin-top: 2rem;">
+    <div class="footer-attribution">
         <em>This digital scholarship extension bridges traditional humanities pedagogy with computational methods, 
-        demonstrating how theoretical frameworks can become actionable tools while maintaining critical rigor.</em>
+        demonstrating how theoretical frameworks can become actionable tools while maintaining critical rigor.</em><br>
+        <strong>Developed as part of the AI literacy initiatives of <a href="https://libraries.wm.edu">W&M Libraries</a></strong>
+        <br><br>
+        <a href="https://github.com/Xmousia/ai-framework-analysis">AI Framework Analysis Tool</a> © 2025 by <a href="https://creativecommons.org">TD</a> is licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International</a><img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/nc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;">
     </div>
     """, unsafe_allow_html=True)
 
 def create_workshop_resource_package():
-    """Create enhanced workshop resources that integrate with the actual pedagogy"""
+    """Create enhanced workshop resources with W&M Libraries attribution"""
     
     resources = f"""# Prompt-as-Instrument Workshop: Complete Guide
 ## Using LLMs to Perform Theory-Driven Readings of Human Texts
+
+*Part of the AI literacy initiatives of W&M Libraries*  
+*Available at: https://libraries.wm.edu*
 
 ### Abstract
 This activity approaches AI literacy as an interpretive practice that can also inform tool-use skills. Students select a theoretical lens for reading human texts, translate that lens into a carefully structured prompt, and iteratively test the prompt with a large language model.
 
 The model functions both as:
-* **Instrument** — enacting the student's method on a target text  
-* **Object** — producing outputs that can themselves be annotated and critiqued
+* **Instrument** – enacting the student's method on a target text  
+* **Object** – producing outputs that can themselves be annotated and critiqued
 
 ### Learning Outcomes (ACRL Framework)
-* **Research as Inquiry** — Formulate and refine research questions; select appropriate theoretical lenses
-* **Information Creation as a Process** — Translate theory into a procedural prompt; iterate with documented versions  
-* **Authority Is Constructed and Contextual** — Evaluate how interpretive frames confer or withhold authority
-* **Searching as Strategic Exploration** — Locate, compare, and synthesize scholarly sources to build actionable frameworks
-* **Scholarship as Conversation** — Cite, operationalize, and critique scholarly concepts in applied settings
-* **Information Has Value** — Address citation ethics and reflect on responsible use of generative systems
+* **Research as Inquiry** – Formulate and refine research questions; select appropriate theoretical lenses
+* **Information Creation as a Process** – Translate theory into a procedural prompt; iterate with documented versions  
+* **Authority Is Constructed and Contextual** – Evaluate how interpretive frames confer or withhold authority
+* **Searching as Strategic Exploration** – Locate, compare, and synthesize scholarly sources to build actionable frameworks
+* **Scholarship as Conversation** – Cite, operationalize, and critique scholarly concepts in applied settings
+* **Information Has Value** – Address citation ethics and reflect on responsible use of generative systems
 
 ## The 8-Step Workshop Process
 
@@ -383,19 +425,23 @@ Use the AI Framework Analysis Tool or build your own simple implementation:
 **Object:** The AI's outputs reveal both framework insights and AI limitations, becoming data for critical analysis
 
 ## Sample Frameworks Available:
-1. **Metaphor & Anthropomorphism Analysis** — AI discourse analysis using cognitive linguistics
-2. **Political Framing Analysis** — Discourse analysis using Entman's framing functions  
-3. **Aristotelian Rhetorical Analysis** — Comprehensive ethos, pathos, logos analysis
+1. **Metaphor & Anthropomorphism Analysis** – AI discourse analysis using cognitive linguistics
+2. **Political Framing Analysis** – Discourse analysis using Entman's framing functions  
+3. **Aristotelian Rhetorical Analysis** – Comprehensive ethos, pathos, logos analysis
 
 ## Assessment Elements This Tool Supports:
-* **Framework Clarity & Accuracy** — See expert implementations
-* **Blueprint Specificity** — Experience well-structured analysis plans  
-* **Iteration Rationale** — Understand prompt refinement process
-* **Analytical Annotations** — Practice critical evaluation of AI outputs
-* **Synthesis & Reflection** — Connect theory, tool use, and critique
+* **Framework Clarity & Accuracy** – See expert implementations
+* **Blueprint Specificity** – Experience well-structured analysis plans  
+* **Iteration Rationale** – Understand prompt refinement process
+* **Analytical Annotations** – Practice critical evaluation of AI outputs
+* **Synthesis & Reflection** – Connect theory, tool use, and critique
 
 ---
 *This workshop bridges traditional humanities pedagogy with digital methods, preparing students for scholarly work in an AI-integrated academic landscape.*
+
+**Developed by W&M Libraries**  
+*AI Literacy Initiatives*  
+*https://libraries.wm.edu*
 
 Generated by AI Framework Analysis Tool - Workshop Edition
 """
@@ -407,7 +453,7 @@ Generated by AI Framework Analysis Tool - Workshop Edition
 # =============================================================================
 
 def main():
-    """Main application with workshop page integration"""
+    """Main application with W&M Libraries attribution and workshop page integration"""
     init_simple_state()
     
     # Check if workshop page should be shown
@@ -421,8 +467,10 @@ def main():
             st.rerun()
         return
     
-    # Header with workshop info
+    # Main header with W&M attribution
     st.markdown('<div class="big-header">🔬 AI Framework Analysis Tool</div>', unsafe_allow_html=True)
+    st.markdown('<div class="wm-attribution">Part of the AI literacy initiatives of W&M Libraries</div>', unsafe_allow_html=True)
+    st.markdown('<div class="wm-link"><a href="https://libraries.wm.edu">🔗 Visit W&M Libraries</a></div>', unsafe_allow_html=True)
     
     # Workshop info banner
     st.info("🎓 **Workshop Tool:** This demonstrates the Framework-to-Prompt-to-Analysis pipeline for digital scholarship. Click 'About Workshop' below to learn more!")
@@ -445,8 +493,17 @@ def main():
     # Navigation buttons at bottom
     show_navigation_buttons()
     
-    # Enhanced sidebar with workshop info
+    # Enhanced sidebar with W&M attribution and workshop info
     with st.sidebar:
+        # W&M Libraries attribution box
+        st.markdown("""
+        <div class="wm-sidebar">
+            <h4>📚 W&M Libraries</h4>
+            <p><em>AI Literacy Initiatives</em></p>
+            <a href="https://libraries.wm.edu">Visit libraries.wm.edu</a>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("### 🎓 Workshop Navigation")
         if st.button("📚 About This Workshop", use_container_width=True, type="primary"):
             st.session_state.show_workshop_page = True
@@ -470,6 +527,16 @@ def main():
                 if key not in keys_to_keep:
                     del st.session_state[key]
             st.rerun()
+    
+    # Footer attribution with Creative Commons license
+    st.markdown("""
+    <div class="footer-attribution">
+        Developed as part of the AI literacy initiatives of 
+        <a href="https://libraries.wm.edu">W&M Libraries</a>
+        <br><br>
+        <a href="https://github.com/Xmousia/ai-framework-analysis">AI Framework Analysis Tool</a> © 2025 by <a href="https://creativecommons.org">TD</a> is licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International</a><img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/nc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;">
+    </div>
+    """, unsafe_allow_html=True)
 
 def show_step_progress():
     """Show clear step progress"""
@@ -1188,7 +1255,7 @@ def step_5_view_results():
             display_generic_results(analysis)
     else:
         # Freeform text display
-        st.markdown("### 📝 Analysis Results")
+        st.markdown("### 🔍 Analysis Results")
         st.write(analysis)
     
     # Download options
